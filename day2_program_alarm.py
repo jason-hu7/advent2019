@@ -18,7 +18,7 @@ def opcode2_op(intcode: List[int], pos1: int, pos2: int) -> int:
     return intcode[pos1] * intcode[pos2]
 
 def run_intcode(intcode: List[int], opcodes: List[int] = opcodes) -> List[int]:
-    intcode_copy = intcode
+    intcode_copy = intcode.copy()
     position_ind = 0
     while position_ind < len(intcode_copy):
         opcode = intcode_copy[position_ind]
@@ -59,6 +59,29 @@ assert run_intcode(data_5, opcodes) == data_5_ans
 print('all tests passed!')
 
 # precrash restoration
-intcode[1] = 12
-intcode[2] = 2
-print(run_intcode(intcode, opcodes))
+intcode_copy = intcode.copy()
+intcode_copy[1] = 12
+intcode_copy[2] = 2
+print(run_intcode(intcode_copy, opcodes))
+
+
+# part 2
+print("-------------------part2 starts below: \n")
+
+target = 19690720
+
+
+def brute_force_search(intcode: List[int], opcodes: List[int], target: int) -> None:
+    for i in range(100):
+        for j in range(100):
+            intcode_cpy = intcode.copy()
+            intcode_cpy[1] = i
+            intcode_cpy[2] = j
+            output = run_intcode(intcode_cpy, opcodes)[0]
+            if output == target:
+                print("Found target!")
+                print("The result input is: {} at position 1, {} at position 2.".format(i, j))
+                print("The answer is {}".format(100 * i + j))
+                break
+
+brute_force_search(intcode, opcodes, target)
