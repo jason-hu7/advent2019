@@ -21,11 +21,11 @@ def fuel_accum(mass: int) -> int:
 if __name__ == "__main__":
     fuel_req = 0
     # read data
-    with open('data/input_day1.txt') as f:
+    with open("data/input_day1.txt") as f:
         masses = f.read().splitlines()
         for mass in masses:
             fuel_req += find_fuel(int(mass))
-    
+
     print("Part 1 answer is: ", fuel_req)
 
     # Part 2
@@ -40,4 +40,3 @@ if __name__ == "__main__":
     for mass in masses:
         fuel_req += fuel_accum(int(mass))
     print("Part 2 answer is: ", fuel_req)
-
