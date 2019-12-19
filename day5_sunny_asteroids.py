@@ -17,7 +17,7 @@ def run_instruction(intcode: List[int],
     return intcode, position_ind
 
 
-def get_parameters(intcode: List[int], position_ind:int, modes: List[int], opcode: int) -> List[int]:
+def get_parameters(intcode: List[int], position_ind:int, modes: List[int], opcode: int, parameter_mode: bool) -> List[int]:
     param1 = intcode[position_ind+1]
     if opcode in (1, 2, 7, 8):
         param2 = intcode[position_ind+2]
@@ -34,7 +34,10 @@ def get_parameters(intcode: List[int], position_ind:int, modes: List[int], opcod
         params = [param1]
         return params
     elif opcode == 4:
-        params = [param1]
+        if not parameter_mode:
+            return [intcode[param1]]
+        else:
+            params = [param1]
     else:
         raise Exception("Not implemented.")
     for i, mode in enumerate(modes):
@@ -42,11 +45,12 @@ def get_parameters(intcode: List[int], position_ind:int, modes: List[int], opcod
             params[i] = intcode[params[i]]
     return params
 
-def run_opcode(intcode: List[int], position_ind:int, modes: List[int], input_code: Optional[int] = None) -> Tuple[List[int], int]:
+
+def run_opcode(intcode: List[int], position_ind:int, modes: List[int], input_code: Optional[int] = None, parameter_mode: bool = False) -> Tuple[List[int], int]:
     opcode = intcode[position_ind]
     if len(str(opcode)) > 1:
         opcode = int(str(opcode)[-1])
-    params = get_parameters(intcode, position_ind, modes, opcode)
+    params = get_parameters(intcode, position_ind, modes, opcode, parameter_mode)
     if opcode == 1:
         intcode = opcode1_op(intcode, params)
         position_ind += 4
@@ -175,7 +179,7 @@ def parameter_mode(
         if op_code == 3:
             raise Exception("This number does not look right.")
         elif op_code == 4:
-            intcode, position_ind = run_opcode(intcode, position_ind, [param1_mode])
+            intcode, position_ind = run_opcode(intcode, position_ind, [param1_mode], parameter_mode=True)
             return intcode, position_ind
         else:
             param2_mode = 0
@@ -185,7 +189,7 @@ def parameter_mode(
     assert param2_mode in (0, 1)
 
     modes = (param1_mode, param2_mode)
-    intcode, position_ind = run_opcode(intcode, position_ind, modes)
+    intcode, position_ind = run_opcode(intcode, position_ind, modes, parameter_mode=True)
     return intcode, position_ind
 
 
