@@ -214,109 +214,17 @@ def execute_intcode(intcode: List[int], input_code: int, modes: List[int]) -> Li
 
 if __name__ == "__main__":
     # read data
-    with open("data/input_day5.txt") as f:
+    with open("data/input_day7.txt") as f:
         intcode = f.read()
     intcode = [int(i) for i in intcode.split(",")]
 
-    # Unit test 1
-    test1 = [1002, 4, 3, 4, 33]
-    ans1, _ = parameter_mode(test1, 0)
-    assert ans1[4] == 99
+    test1 = [3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0]
+    test2 = [3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0]
+    test3 = [3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0]
+    ans1 = 43210
+    ans2 = 54321
+    ans3 = 65210
 
-    result_code = execute_intcode(intcode, 1, [0])
+    intcode_copy = execute_intcode(test1, 4, [0])
+    print(intcode_copy)
 
-    print("-------------------------------------part 2 start here:")
-
-    test2 = [
-        3,
-        21,
-        1008,
-        21,
-        8,
-        20,
-        1005,
-        20,
-        22,
-        107,
-        8,
-        21,
-        20,
-        1006,
-        20,
-        31,
-        1106,
-        0,
-        36,
-        98,
-        0,
-        0,
-        1002,
-        21,
-        125,
-        20,
-        4,
-        20,
-        1105,
-        1,
-        46,
-        104,
-        999,
-        1105,
-        1,
-        46,
-        1101,
-        1000,
-        1,
-        20,
-        4,
-        20,
-        1105,
-        1,
-        46,
-        98,
-        99,
-    ]
-    test3 = [3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8]
-    test4 = [3, 9, 7, 9, 10, 9, 4, 9, 99, -1, 8]
-
-    test5 = [3, 3, 1108, -1, 8, 3, 4, 3, 99]
-    test6 = [3, 3, 1107, -1, 8, 3, 4, 3, 99]
-
-    test7 = [3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9]
-    test8 = [3, 3, 1105, -1, 9, 1101, 0, 0, 12, 4, 12, 99, 1]
-
-    print("Test 2 given input smaller than 8, answer should be 999")
-    execute_intcode(test2, 5, [0])
-    print("Test 2 given input larger than 8, answer should be 1001")
-    execute_intcode(test2, 10, [0])
-    print("Test 2 given input is equal to 8, answer should be 1000")
-    execute_intcode(test2, 8, [0])
-    print("Test 3 given not 8, answer should be 0")
-    execute_intcode(test3, 5, [0])
-    print("Test 3 given 8, answer should be 1")
-    execute_intcode(test3, 8, [0])
-    print("Test 4 given less than 8, answer should be 1")
-    execute_intcode(test4, 5, [0])
-    print("Test 4 given higher than 8, answer should be 0")
-    execute_intcode(test4, 10, [0])
-
-    print("Test 5 given not 8, answer should be 0")
-    execute_intcode(test5, 5, [1])
-    print("Test 5 given 8, answer should be 1")
-    execute_intcode(test5, 8, [1])
-    print("Test 6 given less than 8, answer should be 1")
-    execute_intcode(test6, 5, [1])
-    print("Test 6 given higher than 8, answer should be 0")
-    execute_intcode(test6, 10, [1])
-
-    print("Test 7 given 0, answer should be 0")
-    execute_intcode(test7, 0, [0])
-    print("Test 7 given not 0, answer should be 1")
-    execute_intcode(test7, 8, [0])
-    print("Test 8 given 0, answer should be 0")
-    execute_intcode(test8, 0, [1])
-    print("Test 8 given not 0, answer should be 1")
-    execute_intcode(test8, 10, [1])
-
-    print("final run on intcode")
-    execute_intcode(intcode, 5, [0])
