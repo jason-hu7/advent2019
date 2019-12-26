@@ -1,215 +1,201 @@
 from typing import List, Tuple, Optional
 
 
-def run_instruction(
-    intcode: List[int], position_ind: int, input_code: int, modes: List[int] = [0]
-) -> Tuple[List[int], int]:
-    """opcode 1 sums two integers at 2 position parameters"""
-    instruction = intcode[position_ind]
+class intcodeProgram:
+    def __init__(self, intcode: List[int], modes: List[int], verbose: bool = True) -> None:
+        self.intcode = intcode.copy()
+        self.modes = modes
+        self.position_ind: int = 0
+        self.output: List[Optional[int]] = []
+        self.phase_set_flag: bool = False
+        self.verbose = verbose
+        self.not_enough_input: bool = False
+        self.input_used: bool = False
 
-    # if length of instruction is 1 then individual mode
-    if len(str(instruction)) == 1:
-        intcode, position_ind = run_opcode(intcode, position_ind, modes, input_code)
-    # if length of instruction is bigger than 1 then parameter mode
-    else:
-        intcode, position_ind = parameter_mode(intcode, position_ind)
-    return intcode, position_ind
+    @property
+    def instruction(self) -> int:
+        return self.intcode[self.position_ind]
 
-
-def get_parameters(
-    intcode: List[int],
-    position_ind: int,
-    modes: List[int],
-    opcode: int,
-    parameter_mode: bool,
-) -> List[int]:
-    param1 = intcode[position_ind + 1]
-    if opcode in (1, 2, 7, 8):
-        param2 = intcode[position_ind + 2]
-        param3 = intcode[position_ind + 3]
-        params = [param1, param2, param3]
-        if len(modes) == 1:
-            modes = modes * 2
-    elif opcode in (5, 6):
-        param2 = intcode[position_ind + 2]
-        params = [param1, param2]
-        if len(modes) == 1:
-            modes = modes * 2
-    elif opcode == 3:
-        params = [param1]
-        return params
-    elif opcode == 4:
-        if not parameter_mode:
-            return [intcode[param1]]
+    @property
+    def parameter_mode_flag(self) -> bool:
+        if len(str(self.instruction)) == 1:
+            return False
         else:
+            return True
+
+    def execute_intcode(self, input_code: int) -> List[int]:
+        while self.position_ind < len(self.intcode):
+            # print("instruction code: ", self.instruction)
+            if self.instruction == 99:
+                break
+            elif self.not_enough_input:
+                # reset the flag
+                self.not_enough_input = False
+                self.input_used = False
+                break
+            else:
+                self.run_instruction(input_code)
+
+    def run_instruction(self, input_code: int) -> None:
+        """opcode 1 sums two integers at 2 position parameters"""
+        if self.parameter_mode_flag:
+            self.run_parameter_mode(self.instruction)
+        else:
+            self.run_opcode(self.instruction, input_code, self.modes.copy())
+
+    def run_parameter_mode(self, opcode: int) -> List[int]:
+        instruction_code_str = str(self.instruction)
+        opcode = int(instruction_code_str[-2:])  # rightmost 2 digits
+        parameters_reversed = instruction_code_str[:-2][::-1]
+        param1_mode = int(parameters_reversed[0])  # hundreds digit
+        if len(instruction_code_str) == 4:
+            param2_mode = int(parameters_reversed[1])  # thousands digit
+        elif len(instruction_code_str) == 3:
+            if opcode == 3:
+                raise Exception("This number does not look right.")
+            elif opcode == 4:
+                self.run_opcode(opcode, input_code=None, modes=[param1_mode])
+                return
+            else:
+                param2_mode = 0
+        else:
+            raise Exception("Not implemented.")
+        assert param1_mode in (0, 1)
+        assert param2_mode in (0, 1)
+
+        modes = [param1_mode, param2_mode]
+        self.run_opcode(opcode, input_code=None, modes=modes)
+
+    def run_opcode(
+        self, opcode: int, input_code: int, modes: List[int]
+    ) -> None:
+        if len(str(opcode)) > 1:
+            opcode = int(str(opcode)[-1])
+        params = self.get_parameters(opcode, modes)
+        if opcode == 1:
+            self.opcode1_op(params)
+            self.position_ind = self.position_ind + 4
+        elif opcode == 2:
+            self.opcode2_op(params)
+            self.position_ind = self.position_ind + 4
+        elif opcode == 3:
+            if input_code is None:
+                raise Exception("you need to provide an input code")
+            if self.input_used:
+                self.not_enough_input = True
+            else:
+                self.opcode3_op(params, input_code)
+                self.input_used = True
+                self.position_ind = self.position_ind + 2
+        elif opcode == 4:
+            self.opcode4_op(params)
+            self.position_ind = self.position_ind + 2
+        elif opcode == 5:
+            self.opcode5_op(params)
+        elif opcode == 6:
+            self.opcode6_op(params)
+        elif opcode == 7:
+            self.opcode7_op(params)
+            self.position_ind = self.position_ind + 4
+        elif opcode == 8:
+            self.opcode8_op(params)
+            self.position_ind = self.position_ind + 4
+        else:
+            raise Exception("Not implemented.")
+
+    def get_parameters(self, opcode: int, modes: List[int]) -> List[int]:
+        param1 = self.intcode[self.position_ind + 1]
+        # opcode 1, 2, 7, 8 requires 3 parameters
+        if opcode in (1, 2, 7, 8):
+            param2 = self.intcode[self.position_ind + 2]
+            param3 = self.intcode[self.position_ind + 3]
+            params = [param1, param2, param3]
+            # if length of modes is 1 then same parameter mode for all inputs
+            if len(modes) == 1:
+                modes = modes * 2
+        # opcode 5, 6 requires 2 parameters as inputs
+        elif opcode in (5, 6):
+            param2 = self.intcode[self.position_ind + 2]
+            params = [param1, param2]
+            if len(modes) == 1:
+                modes = modes * 2
+        # opcode 3, 4 reuires 1 parameter
+        elif opcode == 3:
             params = [param1]
-    else:
-        raise Exception("Not implemented.")
-    for i, mode in enumerate(modes):
-        if mode == 0:
-            params[i] = intcode[params[i]]
-    return params
+            return params
+        elif opcode == 4:
+            if self.parameter_mode_flag:
+                params = [param1]
+            else:
+                return [self.intcode[param1]]
+        else:
+            raise Exception("Not implemented.")
+        # print(params, modes)
+        for i, mode in enumerate(modes):
+            if mode == 0:
+                params[i] = self.intcode[params[i]]
+        return params
 
+    def opcode1_op(self, params: List[int]) -> None:
+        """opcode 1 sums two integers at 2 position parameters"""
+        param1, param2, param3 = params
+        self.intcode[param3] = param1 + param2
 
-def run_opcode(
-    intcode: List[int],
-    position_ind: int,
-    modes: List[int],
-    input_code: Optional[int] = None,
-    parameter_mode: bool = False,
-) -> Tuple[List[int], int]:
-    opcode = intcode[position_ind]
-    if len(str(opcode)) > 1:
-        opcode = int(str(opcode)[-1])
-    params = get_parameters(intcode, position_ind, modes, opcode, parameter_mode)
-    if opcode == 1:
-        intcode = opcode1_op(intcode, params)
-        position_ind += 4
-    elif opcode == 2:
-        intcode = opcode2_op(intcode, params)
-        position_ind += 4
-    elif opcode == 3:
+    def opcode2_op(self, params: List[int]) -> None:
+        """opcode 2 multiplies two integers at 2 position parameters"""
+        param1, param2, param3 = params
+        self.intcode[param3] = param1 * param2
+
+    def opcode3_op(self, params: List[int], input_code: Optional[int]) -> None:
+        """opcode 3 takes a single integer input and stores at position pos1"""
         if input_code == None:
-            raise Exception("you need to provide an input code")
-        intcode = opcode3_op(intcode, params, input_code)
-        position_ind += 2
-    elif opcode == 4:
-        intcode = opcode4_op(intcode, params)
-        position_ind += 2
-    elif opcode == 5:
-        position_ind = opcode5_op(intcode, params, position_ind)
-    elif opcode == 6:
-        position_ind = opcode6_op(intcode, params, position_ind)
-    elif opcode == 7:
-        intcode = opcode7_op(intcode, params, position_ind)
-        position_ind += 4
-    elif opcode == 8:
-        intcode = opcode8_op(intcode, params, position_ind)
-        position_ind += 4
-    else:
-        raise Exception("Not implemented.")
-    return intcode, position_ind
+            raise Exception("No input provided.")
+        param1 = params[0]
+        if self.verbose:
+            print("Provide input {}".format(input_code))
+        self.intcode[param1] = input_code
+        # # If this is the first input then set phase setting to being finished
+        # if not self.phase_set_flag:
+        #     self.phase_set_flag = True
 
+    def opcode4_op(self, params: List[int]) -> None:
+        """opcode 4 outputs the value of param1 in the intcode"""
+        param1 = params[0]
+        self.output = self.output + [param1]
+        if self.verbose:
+            print("output from opcode 4 instruction: ", param1)
 
-def opcode1_op(intcode: List[int], params: List[int],) -> List[int]:
-    """opcode 1 sums two integers at 2 position parameters"""
-    param1, param2, param3 = params
-    intcode[param3] = param1 + param2
-    return intcode
-
-
-def opcode2_op(intcode: List[int], params: List[int],) -> List[int]:
-    """opcode 2 multiplies two integers at 2 position parameters"""
-    param1, param2, param3 = params
-    intcode[param3] = param1 * param2
-    return intcode
-
-
-def opcode3_op(
-    intcode: List[int], params: List[int], input_code: Optional[int]
-) -> List[int]:
-    """opcode 3 takes a single integer input and stores at position pos1"""
-    if input_code == None:
-        raise Exception("No input provided.")
-    param1 = params[0]
-    intcode[param1] = input_code
-    return intcode
-
-
-def opcode4_op(intcode: List[int], params: List[int]) -> int:
-    """opcode 4 outputs the value of param1 in the intcode"""
-    param1 = params[0]
-    print(param1)
-    return intcode
-
-
-def opcode5_op(intcode: List[int], params: List[int], position_ind: int) -> int:
-    """Jump if true"""
-    param1, param2 = params
-    if param1 == 0:
-        position_ind += 3
-    else:
-        position_ind = param2
-    return position_ind
-
-
-def opcode6_op(intcode: List[int], params: List[int], position_ind: int) -> int:
-    """Jump if false"""
-    param1, param2 = params
-    if param1 == 0:
-        position_ind = param2
-    else:
-        position_ind += 3
-    return position_ind
-
-
-def opcode7_op(intcode: List[int], params: List[int], position_ind: int,) -> List[int]:
-    """Less than"""
-    param1, param2, param3 = params
-    if param1 < param2:
-        intcode[param3] = 1
-    else:
-        intcode[param3] = 0
-    return intcode
-
-
-def opcode8_op(intcode: List[int], params: List[int], position_ind: int,) -> List[int]:
-    """Equals"""
-    param1, param2, param3 = params
-    if param1 == param2:
-        intcode[param3] = 1
-    else:
-        intcode[param3] = 0
-    return intcode
-
-
-def parameter_mode(intcode: List[int], position_ind: int) -> List[int]:
-    instruction_code = intcode[position_ind]
-    instruction_code_str = str(instruction_code)
-    op_code = int(instruction_code_str[-2:])  # rightmost 2 digits
-    parameters_reversed = instruction_code_str[:-2][::-1]
-    param1_mode = int(parameters_reversed[0])  # hundreds digit
-    if len(instruction_code_str) == 4:
-        param2_mode = int(parameters_reversed[1])  # thousands digit
-    elif len(instruction_code_str) == 3:
-        if op_code == 3:
-            raise Exception("This number does not look right.")
-        elif op_code == 4:
-            intcode, position_ind = run_opcode(
-                intcode, position_ind, [param1_mode], parameter_mode=True
-            )
-            return intcode, position_ind
+    def opcode5_op(self, params: List[int]) -> None:
+        """Jump if true"""
+        param1, param2 = params
+        if param1 == 0:
+            self.position_ind = self.position_ind + 3
         else:
-            param2_mode = 0
-    else:
-        raise Exception("Not implemented.")
-    assert param1_mode in (0, 1)
-    assert param2_mode in (0, 1)
+            self.position_ind = param2
 
-    modes = (param1_mode, param2_mode)
-    intcode, position_ind = run_opcode(
-        intcode, position_ind, modes, parameter_mode=True
-    )
-    return intcode, position_ind
-
-
-def execute_intcode(intcode: List[int], input_code: int, modes: List[int]) -> List[int]:
-    intcode_copy = intcode.copy()
-    position_ind = 0
-    while position_ind < len(intcode_copy):
-        instruction_code = intcode_copy[position_ind]
-        # print("instruction code: ", instruction_code)
-        if instruction_code == 99:
-            break
-        elif instruction_code == 3:
-            instruction_code, position_ind = run_instruction(
-                intcode_copy, position_ind, input_code, modes
-            )
+    def opcode6_op(self, params: List[int]) -> None:
+        """Jump if false"""
+        param1, param2 = params
+        if param1 == 0:
+            self.position_ind = param2
         else:
-            intcode_copy, position_ind = run_instruction(
-                intcode_copy, position_ind, None, modes
-            )
-    return intcode_copy
+            self.position_ind = self.position_ind + 3
+
+    def opcode7_op(self, params: List[int]) -> None:
+        """Less than"""
+        param1, param2, param3 = params
+        if param1 < param2:
+            self.intcode[param3] = 1
+        else:
+            self.intcode[param3] = 0
+
+    def opcode8_op(self, params: List[int]) -> None:
+        """Equals"""
+        param1, param2, param3 = params
+        if param1 == param2:
+            self.intcode[param3] = 1
+        else:
+            self.intcode[param3] = 0
 
 
 if __name__ == "__main__":
@@ -220,10 +206,12 @@ if __name__ == "__main__":
 
     # Unit test 1
     test1 = [1002, 4, 3, 4, 33]
-    ans1, _ = parameter_mode(test1, 0)
-    assert ans1[4] == 99
+    test1_intcode = intcodeProgram(test1, [0])
+    test1_intcode.run_parameter_mode(1002)
+    assert test1_intcode.intcode[4] == 99
 
-    result_code = execute_intcode(intcode, 1, [0])
+    part1_intcode = intcodeProgram(intcode, [0])
+    part1_intcode.execute_intcode(1)
 
     print("-------------------------------------part 2 start here:")
 
@@ -286,37 +274,53 @@ if __name__ == "__main__":
     test8 = [3, 3, 1105, -1, 9, 1101, 0, 0, 12, 4, 12, 99, 1]
 
     print("Test 2 given input smaller than 8, answer should be 999")
-    execute_intcode(test2, 5, [0])
+    test2_intcode = intcodeProgram(test2, [0])
+    test2_intcode.execute_intcode(5)
     print("Test 2 given input larger than 8, answer should be 1001")
-    execute_intcode(test2, 10, [0])
+    test2_intcode = intcodeProgram(test2, [0])
+    test2_intcode.execute_intcode(10)
     print("Test 2 given input is equal to 8, answer should be 1000")
-    execute_intcode(test2, 8, [0])
+    test2_intcode = intcodeProgram(test2, [0])
+    test2_intcode.execute_intcode(8)
     print("Test 3 given not 8, answer should be 0")
-    execute_intcode(test3, 5, [0])
+    test3_intcode = intcodeProgram(test3, [0])
+    test3_intcode.execute_intcode(5)
     print("Test 3 given 8, answer should be 1")
-    execute_intcode(test3, 8, [0])
+    test3_intcode = intcodeProgram(test3, [0])
+    test3_intcode.execute_intcode(8)
     print("Test 4 given less than 8, answer should be 1")
-    execute_intcode(test4, 5, [0])
+    test4_intcode = intcodeProgram(test4, [0])
+    test4_intcode.execute_intcode(5)
     print("Test 4 given higher than 8, answer should be 0")
-    execute_intcode(test4, 10, [0])
+    test4_intcode = intcodeProgram(test4, [0])
+    test4_intcode.execute_intcode(10)
 
     print("Test 5 given not 8, answer should be 0")
-    execute_intcode(test5, 5, [1])
+    test5_intcode = intcodeProgram(test5, [1])
+    test5_intcode.execute_intcode(5)
     print("Test 5 given 8, answer should be 1")
-    execute_intcode(test5, 8, [1])
+    test5_intcode = intcodeProgram(test5, [1])
+    test5_intcode.execute_intcode(8)
     print("Test 6 given less than 8, answer should be 1")
-    execute_intcode(test6, 5, [1])
+    test6_intcode = intcodeProgram(test6, [1])
+    test6_intcode.execute_intcode(5)
     print("Test 6 given higher than 8, answer should be 0")
-    execute_intcode(test6, 10, [1])
+    test6_intcode = intcodeProgram(test6, [1])
+    test6_intcode.execute_intcode(10)
 
     print("Test 7 given 0, answer should be 0")
-    execute_intcode(test7, 0, [0])
+    test7_intcode = intcodeProgram(test7, [0])
+    test7_intcode.execute_intcode(0)
     print("Test 7 given not 0, answer should be 1")
-    execute_intcode(test7, 8, [0])
+    test7_intcode = intcodeProgram(test7, [0])
+    test7_intcode.execute_intcode(8)
     print("Test 8 given 0, answer should be 0")
-    execute_intcode(test8, 0, [1])
+    test8_intcode = intcodeProgram(test8, [1])
+    test8_intcode.execute_intcode(0)
     print("Test 8 given not 0, answer should be 1")
-    execute_intcode(test8, 10, [1])
+    test8_intcode = intcodeProgram(test8, [1])
+    test8_intcode.execute_intcode(10)
 
     print("final run on intcode")
-    execute_intcode(intcode, 5, [0])
+    part2_intcode = intcodeProgram(intcode, [0])
+    part2_intcode.execute_intcode(5)
