@@ -56,6 +56,9 @@ class intcodeProgram:
         if len(instruction_code_str) == 4:
             param2_mode = int(parameters_reversed[1])  # thousands digit
             param3_mode = 1
+        elif len(instruction_code_str) == 5:
+            param2_mode = int(parameters_reversed[1])  # thousands digit
+            param3_mode = int(parameters_reversed[2])  # ten thousands digit
         elif len(instruction_code_str) == 3:
             if opcode == 3:
                 self.run_opcode(opcode, input_code=input_code, modes=[param1_mode])
@@ -65,10 +68,7 @@ class intcodeProgram:
                 return
             else:
                 param2_mode = 0
-                param3_mode = 1
-        elif len(instruction_code_str) == 5:
-            param2_mode = int(parameters_reversed[1])  # thousands digit
-            param3_mode = int(parameters_reversed[2])  # ten thousands digit
+                param3_mode = 1  # this is a dummy variable
         else:
             raise Exception("Not implemented.")
         modes = [param1_mode, param2_mode, param3_mode]
@@ -87,6 +87,7 @@ class intcodeProgram:
         elif opcode == 3:
             if input_code is None:
                 raise Exception("you need to provide an input code")
+            # If the program is asking for a second input then halt
             if self.input_used:
                 self.not_enough_input = True
             else:
@@ -170,7 +171,6 @@ class intcodeProgram:
         if input_code == None:
             raise Exception("No input provided.")
         param1 = params[0]
-        # print("param for opcde 3 is: {}".format(param1))
         if self.verbose:
             print("Provide input {}".format(input_code))
         self.intcode[param1] = input_code
