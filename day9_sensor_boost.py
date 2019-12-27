@@ -12,16 +12,25 @@ if __name__ == "__main__":
     test2 = [1102,34915192,34915192,7,4,7,99,0]
     test3 = [104,1125899906842624,99]
 
-    # test1_intcode = intcodeProgram(test1, [0])
-    # test1_intcode.execute_intcode(None)
-    # assert test1_intcode.output == test1
+    test1_intcode = intcodeProgram(test1, [0])
+    test1_intcode.execute_intcode(None)
+    assert test1_intcode.output == test1
 
-    # test2_intcode = intcodeProgram(test2, [0])
-    # test2_intcode.execute_intcode(None)
-    # assert len(str(test2_intcode.output[0])) == 16
+    test2_intcode = intcodeProgram(test2, [0])
+    test2_intcode.execute_intcode(None)
+    assert len(str(test2_intcode.output[0])) == 16
 
-    # test3_intcode = intcodeProgram(test3, [0])
-    # test3_intcode.execute_intcode(None)
-    # assert test3_intcode.output[0] == test3[1]
+    test3_intcode = intcodeProgram(test3, [0])
+    test3_intcode.execute_intcode(None)
+    assert test3_intcode.output[0] == test3[1]
+
+    test1_intcode = intcodeProgram([109, 1, 203, 2, 204, 2, 99], [0])
+    test1_intcode.execute_intcode(1000)
+
     part1 = intcodeProgram(intcode, [0])
     part1.execute_intcode(1)
+
+    print("-------------------------------------part 2 start here:")
+
+    part2 = intcodeProgram(intcode, [0])
+    part2.execute_intcode(2)
