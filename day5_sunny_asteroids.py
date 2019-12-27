@@ -2,15 +2,17 @@ from typing import List, Tuple, Optional
 
 
 class intcodeProgram:
-    def __init__(self, intcode: List[int], modes: List[int], verbose: bool = True) -> None:
+    def __init__(
+        self, intcode: List[int], modes: List[int], verbose: bool = True
+    ) -> None:
         self.intcode = intcode.copy()
         self.modes = modes
         self.position_ind: int = 0
         self.output: List[Optional[int]] = []
-        self.phase_set_flag: bool = False
         self.verbose = verbose
         self.not_enough_input: bool = False
         self.input_used: bool = False
+        self.relative_base: int = 0
 
     @property
     def instruction(self) -> int:
@@ -25,13 +27,16 @@ class intcodeProgram:
 
     def execute_intcode(self, input_code: int) -> List[int]:
         while self.position_ind < len(self.intcode):
-            # print("instruction code: ", self.instruction)
+            print("instruction code: ", self.instruction)
+            # print(len(self.intcode))
             if self.instruction == 99:
+                print("opcode 99, halt the program")
                 break
-            elif self.not_enough_input:
+            elif self.not_enough_input and self.instruction==3:
                 # reset the flag
                 self.not_enough_input = False
                 self.input_used = False
+                print("Need more input, halt the program")
                 break
             else:
                 self.run_instruction(input_code)
@@ -39,11 +44,11 @@ class intcodeProgram:
     def run_instruction(self, input_code: int) -> None:
         """opcode 1 sums two integers at 2 position parameters"""
         if self.parameter_mode_flag:
-            self.run_parameter_mode(self.instruction)
+            self.run_parameter_mode(self.instruction, input_code)
         else:
             self.run_opcode(self.instruction, input_code, self.modes.copy())
 
-    def run_parameter_mode(self, opcode: int) -> List[int]:
+    def run_parameter_mode(self, opcode: int, input_code: int) -> List[int]:
         instruction_code_str = str(self.instruction)
         opcode = int(instruction_code_str[-2:])  # rightmost 2 digits
         parameters_reversed = instruction_code_str[:-2][::-1]
@@ -52,23 +57,22 @@ class intcodeProgram:
             param2_mode = int(parameters_reversed[1])  # thousands digit
         elif len(instruction_code_str) == 3:
             if opcode == 3:
-                raise Exception("This number does not look right.")
-            elif opcode == 4:
+                self.run_opcode(opcode, input_code=input_code, modes=[param1_mode])
+                return
+            if opcode in (4, 9):
                 self.run_opcode(opcode, input_code=None, modes=[param1_mode])
                 return
             else:
                 param2_mode = 0
         else:
             raise Exception("Not implemented.")
-        assert param1_mode in (0, 1)
-        assert param2_mode in (0, 1)
+        assert param1_mode in (0, 1, 2)
+        assert param2_mode in (0, 1, 2)
 
         modes = [param1_mode, param2_mode]
         self.run_opcode(opcode, input_code=None, modes=modes)
 
-    def run_opcode(
-        self, opcode: int, input_code: int, modes: List[int]
-    ) -> None:
+    def run_opcode(self, opcode: int, input_code: int, modes: List[int]) -> None:
         if len(str(opcode)) > 1:
             opcode = int(str(opcode)[-1])
         params = self.get_parameters(opcode, modes)
@@ -80,7 +84,10 @@ class intcodeProgram:
             self.position_ind = self.position_ind + 4
         elif opcode == 3:
             if input_code is None:
-                raise Exception("you need to provide an input code")
+                if self.parameter_mode_flag:
+                    input_code=params[0]
+                else:
+                    raise Exception("you need to provide an input code")
             if self.input_used:
                 self.not_enough_input = True
             else:
@@ -100,6 +107,9 @@ class intcodeProgram:
         elif opcode == 8:
             self.opcode8_op(params)
             self.position_ind = self.position_ind + 4
+        elif opcode == 9:
+            self.opcode9_op(params)
+            self.position_ind = self.position_ind + 2
         else:
             raise Exception("Not implemented.")
 
@@ -122,18 +132,24 @@ class intcodeProgram:
         # opcode 3, 4 reuires 1 parameter
         elif opcode == 3:
             params = [param1]
-            return params
+            if not self.parameter_mode_flag:
+                return params
         elif opcode == 4:
-            if self.parameter_mode_flag:
-                params = [param1]
-            else:
+            params = [param1]
+            if not self.parameter_mode_flag:
                 return [self.intcode[param1]]
+        elif opcode == 9:
+            params = [param1]
         else:
             raise Exception("Not implemented.")
         # print(params, modes)
         for i, mode in enumerate(modes):
             if mode == 0:
+                self.memory_check(params)
                 params[i] = self.intcode[params[i]]
+            if mode == 2:
+                self.memory_check(params)
+                params[i] = self.intcode[params[i]+self.relative_base]
         return params
 
     def opcode1_op(self, params: List[int]) -> None:
@@ -154,9 +170,6 @@ class intcodeProgram:
         if self.verbose:
             print("Provide input {}".format(input_code))
         self.intcode[param1] = input_code
-        # # If this is the first input then set phase setting to being finished
-        # if not self.phase_set_flag:
-        #     self.phase_set_flag = True
 
     def opcode4_op(self, params: List[int]) -> None:
         """opcode 4 outputs the value of param1 in the intcode"""
@@ -197,6 +210,24 @@ class intcodeProgram:
         else:
             self.intcode[param3] = 0
 
+    def opcode9_op(self, params: List[int]) -> None:
+        """opcode 9 adjusts the relative base by the value of its only parameter"""
+        assert len(params) == 1
+        param = params[0]
+        self.relative_base = self.relative_base + param
+
+    def memory_check(self, params: List[int]) -> None:
+        for param in params:
+            if param >= len(self.intcode):
+                self.intcode = extend_memory(self.intcode, param)
+
+
+def extend_memory(intcode: List[int], target_index:int) -> List[int]:
+    assert target_index >= len(intcode)
+    pad_num = target_index + 1 - len(intcode)
+    memory_extension = [0,] * pad_num
+    return intcode + memory_extension
+
 
 if __name__ == "__main__":
     # read data
@@ -207,7 +238,7 @@ if __name__ == "__main__":
     # Unit test 1
     test1 = [1002, 4, 3, 4, 33]
     test1_intcode = intcodeProgram(test1, [0])
-    test1_intcode.run_parameter_mode(1002)
+    test1_intcode.run_parameter_mode(1002, [0])
     assert test1_intcode.intcode[4] == 99
 
     part1_intcode = intcodeProgram(intcode, [0])
